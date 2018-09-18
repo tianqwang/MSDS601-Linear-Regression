@@ -1,0 +1,211 @@
+---
+title: "Homework3"
+author: "Tianqi Wang"
+date: "9/11/2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+knitr::opts_chunk$set(fig.align = 'center') 
+options(scipen=999)
+library(tidyverse)
+library(scales)
+```
+
+
+## Question 2
+
+Eventhough it is true that adding predictor variables to a regression model can never reduce $R^2$, but higher $R^2$ does not necessarrily mean a better model, putting values has little influence on the model would just cause overfitting. A good model should use few variables to generate more information.
+
+## Question 3
+
+Even though adjusted $R^2$ does penalized by the number of independent variables, but after this "penalization", the value would not mean the portion that the variation of dependent variable could explained by the independent variables anymore. i.e the adjusted $R^2$ could be negative.
+
+## Question 4
+
+```{r}
+Kelley <- read.csv("KelleyBlueBookData.csv")
+Kelley$Cylinder <- as.factor(Kelley$Cylinder)
+Kelley$Type <- as.factor(Kelley$Type)
+Mymodel <- lm(Price~Mileage+Type+Cylinder+Liter+Cruise+Sound+Leather,data=Kelley)
+summary(lm(Price~Mileage+Type+Cylinder+Liter+Cruise+Sound+Leather,data=Kelley))
+```
+
+####(a)
+The coefficient of $\beta_{leather}$ is 1677.9499, since the p-value is 0.000116 < 0.001, we can reject the null hypothesis: $H_0: B_{leather} = 0$
+
+####(b)
+The coefficient of $\beta_{leather}$ is 1677.9499, which means cars with leather chairs would price higher 1677.9449 on average, else being equal.
+
+####(c)
+
+```{r}
+Mymodel2 <- lm(Price~Mileage+Type+Cylinder+Cruise+Leather,data=Kelley)
+anova(Mymodel, Mymodel2)
+```
+From the p-value of the F-test of restricted model and unrestricted model, which is 0.1982 > 0.1, we can not reject the null hypothesis $H_0: \beta_{Liter}=\beta_{Sound}=0$, hence we could drop these two variables without signicantly decreasing $R^2$.
+
+####(d)
+
+Although there are three exclusive categories, but the category 4-cylinder would be 1-"6-cylinder"-"8-cylinder" which would be 1 if the observation is not in the other two categories.
+
+####(e)
+
+Firstly I used the assigned values to do the prediction.
+```{r}
+new <- data.frame(Mileage = 15000, Type = as.factor('Convertible'),Cylinder = as.factor(6), Liter = 3, Cruise = 1, Sound = 1, Leather = 1)
+predict(Mymodel,new)
+```
+
+I might hesitate to be confidend in such prediction, since when I use `xtabs` to check the frequency for different combinations of `Cylinder` and `Type`，I found there is no observation that is convertible with 6 cylinders. 
+```{r}
+xtabs(~Type+Cylinder, data = Kelley)
+```
+
+
+####(f)
+
+```{r}
+new <- data.frame(Mileage = 15000, Type = as.factor('Convertible'),Cylinder = as.factor(4), Liter = 2, Cruise = 1, Sound = 1, Leather = 1)
+predict(Mymodel,new)
+```
+
+
+####(g)
+
+```{r}
+predict(Mymodel,new, interval = 'confidence',level = 0.95)
+```
+The confidence interval of the predicted value at $\alpha = 0.05$ significance level means there are 0.95 chance that the mean of truly value would be contained in this confidence interval.
+
+####(h)
+
+```{r}
+predict(Mymodel,new, interval = 'prediction',level = 0.90)
+```
+The prediction inverval of the predictede value at $\alpha = 0.1$ significance level means there are 0.9 chance that the truly value would be contained in this interval.
+
+####(i)
+```{r}
+summary(Mymodel)
+```
+
+So $R^2$ is `r summary(Mymodel)$r.squared`, it means `r percent(summary(Mymodel)$r.squared)` variability of Price could be explained by the variabilities of all independent variables in this model. $R^2_a$ is `r summary(Mymodel)$adj.r.squared`, on the basis of these two pieces of information alone, I can not say there is a really strong evidence of overfitting, since there are no much difference between $R^2$ and $R^2_a$.
+
+####(j)
+
+```{r}
+anova(Mymodel)
+```
+The F-statistic I calculated from the `anova` table is 
+```{r}
+(sum(anova(Mymodel)['Sum Sq'][-length(anova(Mymodel)['Sum Sq'][,1]),1])/sum(anova(Mymodel)['Df'][-length(anova(Mymodel)['Df'][,1]),1]))/anova(Mymodel)['Mean Sq'][length(anova(Mymodel)['Mean Sq'][,1]),1]
+```
+
+Which is same as the result in `summary` : `r summary(Mymodel)$fstatistic[1]`, since the F-statistic is large and the p-value is very small and less than 0.01, I can reject the null hypothesis, at 0.01 significance level.
+
+## Question 5
+
+####(a)
+
+```{r}
+Brand <- read.csv('BrandPreference.csv')
+(Mymodel <- summary(lm(BrandLiking~MoistureContent+Sweetness, data = Brand)))
+```
+
+####(b)
+```{r}
+len <- nrow(Brand)
+X <- cbind(rep(1,len),Brand$MoistureContent,Brand$Sweetness)
+Y <- Brand$BrandLiking
+solve(t(X)%*%X)%*%t(X)%*%Y
+```
+
+The result is same as what I got in `summary`.
+
+####(c)
+
+```{r}
+diag(solve(t(X)%*%X))^0.5*Mymodel$sigma
+```
+The result is same as what I got in `summary`
+
+####(d)
+
+HY is :
+```{r}
+X%*%solve(t(X)%*%X)%*%t(X)%*%Y
+```
+$\hat{\beta_0}+\hat{\beta_1}*MoistureContent+\hat{\beta_2}*Sweetness$ is :
+```{r}
+X%*%matrix(Mymodel$coefficients[,1],nrow=3,ncol=1)
+```
+
+This two methods we get the same result.
+
+## Question 6
+<center>
+$H\times H = X(X^TX)^{-1}X^T\times X(X^TX)^{-1}X^T = X(X^TX)^{-1}X^T X(X^TX)^{-1}X^T$  
+$=X(X^TX)^{-1}(X^TX(X^TX)^{-1})X^T$  
+$=X(X^TX)^{-1}X^T$  
+$=H$
+</center>
+
+## Question 7
+The restricted residual sum of squares would be bigger since fewer variables are included in the model to capture the variability of the dependent variable.
+
+## Question 8
+```{r}
+Body <- read.csv('BodyFatPercentage.csv')
+model1 <- lm(BODYFAT~AGE+WEIGHT+HEIGHT+NECK+CHEST+HIP+THIGH,data=Body)
+model2 <- lm(BODYFAT~AGE+NECK+CHEST+THIGH,data=Body)
+anova(model1,model2)
+```
+So the F-statistic of restrcited model and unrestricted model is:
+<center>
+$\frac{(6395.0-6159.1)/3}{6159.1/244} = 3.11$
+</center>
+Which is the same as we can directly observe from the anova table.
+
+
+## Question 9
+
+- 7 dummy variables we need to use.
+- We just need to transform the variable into factor and use `lm` to run the regression and R would create the dummy variables automatically.
+- It would cause multicollinearity since the eighth dummy variable is the linear combination of previous 7 ones.
+
+## Question 10
+
+####(a)
+```{r}
+FEV <- read.csv('FEV.csv')
+(model10 <- summary(lm(FEV~AGE+SEX+SMOKER+AGE*SEX+SEX*SMOKER+SMOKER*AGE,data=FEV)))
+```
+
+####(b)
+If we move from a subject that is a female and a non-smoker to a subject that is
+male and a smoker, then the (SEX,SMOKER) variable would change from (0,0) to (1,1), and the forced expiratory volume would change `-0.762+2.149-0.010+(0.109-0.171)*AGE` = `1.377-0.062*AGE`, on average, else being equal, where `AGE` is the based on the age of the observation.
+
+####(c)
+
+The coefficient of AGE is 0.18033, and the coefficient of interaction terms of AGE:SEX,AGE:SMOKER are 0.10936 and -0.17079 respectively. Which means:
+
+- For female non-smoker, each age increase accompany with FEV increase 0.18033, on average, else being equal.
+- For female smoker, each age increase accompany with FEV increase 0.18033-0.17079=0.00954, on average, else being equal.
+- For male non-smoker, each age increase accompany with FEV increase 0.18033+0.01048=0.19081, on average, else being equal.
+- For male smoker, each age increase accompany with FEV increase 0.18033+0.01048-0.17079=0.01002, on average, else being equal.
+
+For all types of samples, the coefficient are all positive, that means all FEV would increase as age grows. If the data set was full of individuals aged 40-65 years old, this interpret would be a bit comfused.
+
+
+####(d)
+The coeffient of the interation term is -0.17, which means for smokers, the slope of Price agains Age would be 0.17 less, that is 0.18-0.17 = 0.01. Which means for each one unit Age increase, the increase of forced expiratory volume would be 0.17 less for smokers, compared with non-smokers.
+
+####(e)
+I think the total years for smoking would better explain how FEV decreases over time for smokers, since the smokers distribution in different ages would be different.

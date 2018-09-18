@@ -1,0 +1,177 @@
+---
+title: "MSDS 601 Homework 2"
+author: "Tianqi Wang"
+date: "9/3/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+knitr::opts_chunk$set(fig.align = 'center') 
+options(scipen=999)
+library(tidyverse)
+library(scales)
+```
+
+## Question 1 
+
+#### (a)
+I think the conclusion is warranted, since the 95% coffidence intervals of $\beta_1$ does not include 0, which shows the null hypotheis that $\beta_1=0$ could be rejected at 0.05 significance level. The implied significance level is 0.05.
+
+#### (b)
+I think argue the value of the lower interval confidence limit at X=0 is not appropriate, the interval confidence does not necessarrily provide meaningful information when 0 is not in the scope in the given model.
+
+## Question 2
+
+
+```{r}
+Kelley <- read.csv("KelleyBlueBookData.csv")
+summary(lm(Price~Mileage,data=Kelley))
+```
+$t^2$ = `r summary(lm(Price~Mileage,data=Kelley))$coefficients[2,4]^2` which is equal to F-statistic = `r summary(lm(Price~Mileage,data=Kelley))$fstatistic[1]`
+
+## Question 3
+
+- For one thing, t test could individually test each parameters, while F test could only be used when take all parameters as a whole.
+- For another, t test could be used to test one-sided or two-sided tests, while F automatically test two-sided tests.
+- And also, t test could be used to test null hypothesis that parameters equal to other values other than 0, while F test only test for parameters equal to zero or not.
+
+## Question 4
+
+The F-statistics would be large if $\beta_1^2$ is large, so for testing $\beta_1^2$ is large should be same as testing $\beta_1<0$ and $\beta_1>0$.
+
+## Question 6 
+```{r}
+data <- read.csv('BodyFatPercentage.csv')
+data <- filter(data,BODYFAT!=0)
+new = data.frame(ABDOMEN=60)
+(summary(lm(BODYFAT~ABDOMEN,data=data)))
+b0 = (summary(lm(BODYFAT~ABDOMEN,data=data)))$coefficients[1,1]
+b1 = (summary(lm(BODYFAT~ABDOMEN,data=data)))$coefficients[2,1]
+MSE = anova(lm(BODYFAT~ABDOMEN,data=data))['Mean Sq'][2,]
+n = nrow(data)-2
+```
+Using R to generate both the predict interval and the confidence interval:
+
+
+- The prediction interval covering 80% of all  individuals with an abdominal circumference of 60 centimeters is 
+```{r}
+predict(lm(BODYFAT~ABDOMEN,data=data),new,interval = 'predict',level = 0.8, df = n-2)
+```
+
+- The 90% confidence interval for the mean body fat percentage of all individuals with an abdominal circumference of 60 centimeters is 
+```{r}
+predict(lm(BODYFAT~ABDOMEN,data=data),new,interval = 'confidence',level = 0.9,df = n-2)
+```
+
+Using the formulars shared in class to generate both the prediction interval and the confidence interval:
+
+- The prediction interval covering 80% of all  individuals with an abdominal circumference of 60 centimeters is 
+<center>
+($\hat{\beta_0}+\hat{\beta_1}*60-t_{0.9}(249)* \sqrt {MSE(1+\frac{1}{n}+\frac{(x_h-\bar{x})}{\sum_{i=1}^{n} (x_i-\bar{x})^2})}$,
+$\hat{\beta_0}+\hat{\beta_1}*60+t_{0.9}(249)* \sqrt {MSE(1+\frac{1}{n}+\frac{(x_h-\bar{x})}{\sum_{i=1}^{n} (x_i-\bar{x})^2})}$
+)
+which is (-5.852351,+5.972567), same as R got.
+
+- The 90% confidence interval for the mean body fat percentage of all individuals with an abdominal circumference of 60 centimeters is 
+<center>
+($\hat{\beta_0}+\hat{\beta_1}*60-t_{0.95}(249)* \sqrt {MSE(\frac{1}{n}+\frac{(x_h-\bar{x})}{\sum_{i=1}^{n} (x_i-\bar{x})^2})}$,
+$\hat{\beta_0}+\hat{\beta_1}*60+t_{0.95}(249)* \sqrt {MSE(\frac{1}{n}+\frac{(x_h-\bar{x})}{\sum_{i=1}^{n} (x_i-\bar{x})^2})}$
+)
+which is (-1.45,+1.57), same as R got.
+</center>
+
+## Question 7
+Since We have
+<center>
+$\sigma^2\{pred\} = \sigma^2(\frac{1}{n}+\frac{(x_h-\bar{x})}{\sum_{i=1}^{n} (x_i-\bar{x})^2})$
+</center>
+and
+<center>
+$\sigma^2\{\hat{Y_h}\} = \sigma^2(1+\frac{1}{n}+\frac{(x_h-\bar{x})}{\sum_{i=1}^{n} (x_i-\bar{x})^2})$
+</center>
+
+Since in $\sigma^2\{pred\}$, as $n$ becomes large, both $\frac{1}{n}$ and $\frac{(x_h-\bar{x})}{\sum_{i=1}^{n} (x_i-\bar{x})^2}$ would be brought increasingly close to zero, so $\sigma^2\{pred\}$ would be brought increasingly close to zero.
+
+But for $\sigma^2\{\hat{Y_h}\}$, there is an additional 1 in the parenthesis, it could only be brought increasingly close to $\sigma^2$.
+
+The implication is, when we add the observations, the we can narrow the prediction invervals and bring it closer to zero, but in this way we can not eliminate the prediction errors.
+
+# Question 8
+```{r}
+air <- read.csv('AirFreightBreakage.csv')
+(lm <- summary(lm(NumberBrokenAmpules~NumberTransfers,data=air)))
+```
+#### (a)
+The 95% confidence intervals for $\beta_1$ is (`r lm$coefficients[2,1]-(qt(0.975,df=8)*lm$coefficients[2,2])`,`r lm$coefficients[2,1]+(qt(0.975,df=8)*lm$coefficients[2,2])`)
+Interpretation: There is 1 95% chance that the true value of $\beta_1$ lies in this inverval.
+
+#### (b)
+Null Hypothesis: $H_0$: $\beta_1 = 0$
+Alternative Hypothesis: $H_a$ :$\beta$ is not zero, which means there do exist linear assosiation between X a carton is transferred and the number of broken ampules Y.
+Decisiton rule: check the p-value of the t-test, if the p-value is less than the significance level which is $\alpha = 0.05$, then we can reject the null hypothesis.
+p-value is `r (1-pt(lm$coefficients[2,1]/lm$coefficients[2,2],df=8))*2` which is less than significance level 0.05.
+So we can get reject the null hypothesis under the significance level 0.05.
+
+#### (c)
+
+The variance of $\hat{\beta_0}$ is $MSE(\frac{1}{n}+\frac{\bar{x}^2}{\sum_{i=1}^{n} (x_i-\bar{x})^2})$, so we can calculate the confidence, which is (`r lm$coefficients[1,1]-(qt(0.975,df=8)*lm$coefficients[1,2])`,`r lm$coefficients[1,1]+(qt(0.975,df=8)*lm$coefficients[1,2])`) 
+
+Interpretation: There is 1 95% chance that the true value of $\beta_0$ lies in this inverval.
+
+
+
+## Question 9
+
+The formula for $\sigma^2\{\hat{Y}_h\}$ is 
+<center>
+$\sigma^2\{\hat{Y_h}\} = \sigma^2(1+\frac{1}{n}+\frac{(x_h-\bar{x})}{\sum_{i=1}^{n} (x_i-\bar{x})^2})$
+</center>
+
+
+## Question 10
+```{r}
+data10 <- read.csv('FiveYearsMAXSATvsFYGPA.csv')
+```
+#### (a)
+```{r}
+lm10 <- lm(termgpa~maxscore, data = data10)
+(anova10 <- anova(lm10))
+```
+
+- For the independent variable `maxscore`, Mean Sq is equal to Sum Sq divided by Df. That is: <center>
+`anova10[1,2]/anova10[1,1]` = `r anova10[1,2]/anova10[1,1]` = `anova10[1,3]`
+</center>
+
+- For the residuals, Mean Sq is also equal to Sum Sq divided by Df. That is 
+<center>
+`anova10[2,2]/anova10[2,1]` = `r anova10[2,2]/anova10[2,1]` = `anova10[2,3]`
+</center>
+
+- The F-value equals to Mean Sq of independent variable `maxscore` divided by Mean Sq of residuals, which is:
+<center>
+`anova10[1,3]/anova10[2,3]` = `r anova10[1,3]/anova10[2,3]` = `anova10[1,4]`
+</center>
+
+#### (b)
+Null Hypothesis: $\beta_1 = 0$
+Alternative Hypothesis: $\beta_1 \neq 0$
+Decisiton rule: check the p-value of the F-test, if the p-value is less than the significance level which is $\alpha = 0.05$, then we can reject the null hypothesis.
+Since the p-value for F-test is `r anova10[1,5]` < 0.05, we can reject the null hypothesis at significance level 0.05 and accept the alternative hypothesis that $\beta_1 \neq 0$, so we can say there are linear relationship between dependent variable and independent variables at significance level 0.05
+
+#### (c)
+
+```{r}
+summary(lm10 <- lm(termgpa~maxscore, data = data10))
+```
+The p-value for the t-test of the $\beta_1$ is equal to the p-value of F-test in part(b), since it is the simple model, they are actually saying the samething.
+
+#### (d)
+```{r}
+anova10
+```
+
+$R^2$ = anova10[1,2]/anova10[2,2] = `r anova10[1,2]/anova10[2,2]`,which means that about 24.4% of the variation in Y could be explained by the variation in X.
