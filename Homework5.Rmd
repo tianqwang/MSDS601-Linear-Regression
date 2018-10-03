@@ -1,0 +1,246 @@
+---
+title: "Homework5"
+author: "Tianqi Wang"
+date: "9/26/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+knitr::opts_chunk$set(fig.align = 'center') 
+options(scipen=999)
+library(tidyverse)
+library(scales)
+library(lmtest)
+library(sandwich)
+library(knitr)
+library(MASS)
+library(tseries)
+library(car)
+library(CircStats)
+library(PerformanceAnalytics)
+library(glmnet)
+```
+
+## Question 1
+```{r}
+data1 <- read.csv('CAKEDailyReturns.csv')
+return <- data1[,1]
+```
+#### (a)
+```{r}
+ggplot()+
+    geom_density(aes(x=return, y=..density..))+
+    geom_histogram(aes(x=return, y=..density..))
+```
+
+The picture shows the return data is not normal, it has more values clustered in the center, which is around 0, and more extreme value, it shows the characteristic of leptokurtic.
+
+#### (b)
+p-p plot
+```{r}
+probDist <- pnorm(return)
+#create PP plot
+plot(ppoints(length(return)), sort(probDist), main = "PP Plot", xlab = "Observed Probability", ylab = "Expected Probability")
+abline(0,1)
+```
+
+q-q plot
+```{r}
+qqnorm(return)
+qqline(return)
+```
+
+Both p-p and q-q plots show the data is far from normal, both plots consistenly show the data has fat tails and also higher peaks, which are the characteristic of leptokurtic.
+
+#### (c)
+J-B test
+```{r}
+jarque.bera.test(return)
+```
+K-S test
+```{r}
+ks.test(return,pnorm)
+```
+
+For both J-B test and K-S test, the p-values are small, so the null hypothesis that the data is plausibly normal has been rejected.
+
+## Question 2
+```{r}
+data2 <- read.csv('BreakfastCereal.csv')
+data2$calories_per_cup <- data2$calories/data2$cups
+data2$sugars_per_cup <- data2$sugars/data2$cups
+data2$carbo_per_cup <- data2$carbo/data2$cups
+data2$protein_per_cup <- data2$protein/data2$cups
+data2$fat_per_cup <- data2$fat/data2$cups
+data2$fiber_per_cup <- data2$fiber/data2$cups
+data2$vitamin_per_cup <- data2$vitamin/data2$cups
+model2 <- lm(calories_per_cup~sugars_per_cup+carbo_per_cup+protein_per_cup+fat_per_cup+fiber_per_cup+vitamin_per_cup+as.factor(mfr)+as.factor(type),rating,data= data2)
+summary(model2)
+```
+
+J-B test
+```{r}
+jarque.bera.test(model2$residuals)
+```
+
+K-S test
+```{r}
+ks.test(model2$residuals,pnorm)
+```
+
+P-values in both J-B test and K-S test are small, which is sufficient to reject the null hypothesis that residuals are plausibly normal, at significance level `\alpha = 0.01`.
+
+
+```{r}
+res <- model2$residuals
+qqnorm(res)
+qqline(res)
+```
+
+From the q-q plot, it shows that the distribution of fitted residuals most stick to the referal line, except for several extreme values, so I think the deviation from normal is not severe, the rejection of null hypothesis in J-B test and K-S test are just caused by those leverage points.
+
+## Question 3
+```{r}
+data3 <- read.csv('AlcoholAndLiverDisorder.csv')
+model3 <- lm(GAMMAGT~MCV+ALKPHOS+SGPT+SGOT,data= data3)
+summary(model3)
+```
+
+#### (a)
+```{r}
+resettest(model3, power = 2:3, type = 'regressor')
+```
+
+Since the p-value is lower than 0.05, which means at the significance level$\alpha = 0.05$, it means the second power and third power of the regressors jointly have significant predictive power on dependent variable, so there could exist missing value problem and we might need to add the proper second and (or) third power of the regressors in the model.
+
+#### (b)
+```{r}
+par(mfrow=c(2,2))
+plot(data3$GAMMAGT~data3$MCV)
+abline(lm(data3$GAMMAGT~data3$MCV))
+plot(data3$GAMMAGT~data3$ALKPHOS)
+abline(lm(data3$GAMMAGT~data3$ALKPHOS))
+plot(data3$GAMMAGT~data3$SGPT)
+abline(lm(data3$GAMMAGT~data3$SGPT))
+plot(data3$GAMMAGT~data3$SGOT)
+abline(lm(data3$GAMMAGT~data3$SGOT))
+```
+
+
+To check the linear relationship between GAMMAGT and the independent variables MCV, ALKPHOS,
+SGPT, and SGOT, I draw several graphs above, it seems that the relationships between GAMMAGT and MCV and SGOT are plausibly linear, while the relationships between GAMMAGT and ALKPHOS, and GMMAGT and SGPT are not.
+
+#### (c)
+I think the third power of `SGPT` should be included in our model, since their relationship seems not so linear.
+
+#### (d)
+```{r}
+model3.new <- lm(GAMMAGT~MCV+ALKPHOS+SGPT+SGOT+I(SGPT^3),data= data3)
+summary(model3.new)
+```
+```{r}
+resettest(model3.new)
+```
+
+After adding the third power of `SGPT`, the p-value of Ramsey RESET test increase a lot, which is reluctant to reject null hypothesis.
+
+## Question 4
+When $X_1$ and $X_2$, $X_2$ and Y are both positive correlated or both negative correlated, then $\tilde{\beta_1}$ would be upward biased, if $X_1$ and $X_2$ are positive correlated and $X_1$ and $Y$ are negative correlated, or $X_1$ and $X_2$ are negative correlated and $X_1$ and $Y$ are positive correlated, then $\tilde{\beta_1}$ would be downsides biased. If there is no linear correlation between $X_1$ and $X_2$, or between $X_1$ and $Y$, then $\tilde{\beta_1}$ would be unbiased.
+
+## Question 5
+```{r}
+data5 <- read.csv('CosmeticsSales.csv')
+model5 <- lm(Y~X1+X2+X3,data=data5)
+summary(model5)
+```
+
+#### (a)
+```{r}
+predictors <- data5[,-1]
+chart.Correlation(predictors)
+```
+
+From the graph above, we can see the correlation coefficient between $X_1$ and $X_2$ is significant large (close to 1), also combined from the graph, we can observe there is strong linear correlation between $X_1$ and $X_2$, so multicollinearity problem exists in our model.
+
+#### (b)
+```{r}
+vif(model5)
+```
+The VIF values of $X_1$ and $X_2$ are quite large (much larger than 10), so it also shows there is evident multicollinearity problem for these two predictor variables.
+
+## Question 6
+```{r}
+data6 <- read.csv('BreakfastCereal.csv')
+model6 <- lm(calories~sugars+carbo+protein+fat+fiber+vitamins+as.factor(mfr)+as.factor(type)+rating, data = data6)
+```
+
+#### (a)
+```{r}
+summary(model6)
+```
+
+#### (b)
+For testing the multicollinearity problem, I will check the VIF for each predictor variables.
+```{r}
+vif(model6)
+```
+
+Then from the tables I notice there are several predictors whose VIF are quite large, 3 of them are larger than 5, 1 is larger than 10, which could show some evidence for the existence of multicollinearity problem.
+
+#### (c)
+Firstly, I drop the variable who has highest VIF value `rating`, and re-run the regression and then check the VIF again.
+```{r}
+model6.new1 <- lm(calories~sugars+carbo+protein+fat+fiber+vitamins+as.factor(mfr)+as.factor(type), data = data6)
+summary(model6.new1)
+```
+
+```{r}
+vif(model6.new1)
+```
+
+Seems the VIF decrease a lot after dropping variable `rating`, then we continue to drop another variable whos VIF larger than 5, which is `mfr`.
+
+```{r}
+model6.new2 <- lm(calories~sugars+carbo+protein+fat+fiber+vitamins+as.factor(type), data = data6)
+summary(model6.new2)
+
+```
+
+```{r}
+vif(model6.new2)
+```
+
+Then VIF for every predictor variables are smaller than 2 now, so the final model is `calories~sugars+carbo+protein+fat+fiber+vitamins+as.factor(type)`.
+
+#### (d)
+```{r}
+model6.new3 <- lm(calories~sugars+carbo+protein+fat+fiber+vitamins+as.factor(mfr)+as.factor(type)+rating, data = data6)
+x <- model.matrix(model6.new3,data6)[,-1]
+y <- data6$calories
+lambdas <- 10^seq(3, -2, by = -.1)
+cv_fit <- cv.glmnet(x, y, alpha = 0,nfolds = 5, lambda = lambdas)
+coef(cv_fit, s="lambda.min")
+```
+```{r}
+coeffcients <- data.frame(OLS=model6$coefficients,Ridge=coef(cv_fit, s="lambda.min")[,1])
+kable(coeffcients)
+```
+
+From the table above, we can see there is not much change for those variables has small vifs, but for those variable who has large vifs like `manufacturer`, the coefficient decrease a lot.
+
+## Question 7
+Three symptoms (or signs) of multicollinearity:
+
+ - There are only a few coefficients that have t-static significant rejecting the null hypothesis, but the F-test for the regression is highly significant.
+ - When adding and dropping variables, there are huge changes to the magnitude and sometimes even the sign of fitted coefficients.
+ - If the VIF of some variables are large (>5), there could exist multicollinearity problem in the model.
+ 
+ Three possible solutions:
+ 
+ - Drop one or more obnoxious variables.
+ - Use ridge or lasso regression.
+ - Collect additional data, which reduces the total impact on $Var(\hat{\beta_j})$.

@@ -7,24 +7,313 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+knitr::opts_chunk$set(fig.align = 'center') 
+options(scipen=999)
+library(tidyverse)
+library(scales)
+library(lmtest)
+library(sandwich)
+library(knitr)
+library(MASS)
+library(tseries)
+library(car)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+## Question 1
+```{r }
+body <- read.csv('BodyFatPercentage.csv')
+body.lm <- lm(BODYFAT~ABDOMEN+WRIST+ANKLE+AGE, data=body)
 ```
 
-## Including Plots
+#### (a)
+ - $H_0$: The variance of residual term is independent to all independent variables.
+ - $H_1$: Teh variance of residual term is a function of at least one independent variable.
+```{r}
+bptest(body.lm)
+```
+Since the p-value is 0.01 < 0.05, so at $\alpha=0.05$ significance level we can reject the null and conclude there exist heteroskadesticity problem.
 
-You can also embed plots, for example:
+#### (b)
+```{r}
+body.stdres <- rstandard(body.lm)
+body.predictedval <- body.lm$fitted.values
+plot(body.predictedval,sqrt(abs(body.stdres)),
+     ylab = 'Squared residual',
+     xlab = 'Fitted Value')
+``` 
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+The outlier has large independent variables as well as high residuals, so it drags the variance up when independent variables are large, so it enhence the linear correlation between variance of residuals and independent variable.
+
+#### (c)
+```{r}
+body.new <- body[-which(body.predictedval>40),]
+body.new <- body.new[body.new$BODYFAT>0,]
+body.lm.new <- lm(BODYFAT~ABDOMEN+WRIST+ANKLE+AGE, data=body.new)
+bptest(body.lm.new)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Now the p-value of B-P test becames larger, at least at 0.1 significance we can not reject the null hypothesis to justify the existence of heteroskadesticity.
+
+#### (d)
+Since there are significant difference for the B-P test results before and after moving out the  outlier, I would conclude that the result of the B-P test is sensitive to the presence of outliers.
+
+## Question 2
+```{r}
+data2 <- read.csv('KelleyBlueBookData.csv')
+mymodel2 <- lm(Price~Mileage+as.factor(Cylinder),data = data2)
+summary(mymodel2)
+```
+- So the 95% confidence for $\beta_{Mileage}$ is (`r -0.15923-qt(0.975, df = 800)*0.03075`, `r -0.15923+qt(0.975, df = 800)*0.03075`)
+
+- The 95% confidence for $\beta_{Cylinder(6)}$ is (`r 2132.09803-qt(0.975, df = 800)*542.20336`, `r 2132.09803+qt(0.975, df = 800)*542.20336`)
+
+- The 95% confidence for $\beta_{Cylinder(8)}$ is (`r 21020.62242-qt(0.975, df = 800)*799.47360`, `r 21020.62242+qt(0.975, df = 800)*799.47360`)
+
+Using the Hull-White heteroscedasticity-robust standard errors
+```{r}
+coeftest(mymodel2, vcov = vcovHC(mymodel2, "HC1"))  
+```
+
+- So the 95% confidence for $\beta_{Mileage}$ is (`r -0.15923-qt(0.975, df = 800)*0.033432`, `r -0.15923+qt(0.975, df = 800)*0.033432`)
+
+- The 95% confidence for $\beta_{Cylinder(6)}$ is (`r 2132.09803-qt(0.975, df = 800)*469.078262`, `r 2132.09803+qt(0.975, df = 800)*469.078262`)
+
+- The 95% confidence for $\beta_{Cylinder(8)}$ is (`r 21020.62242-qt(0.975, df = 800)*1100.434834`, `r 21020.62242+qt(0.975, df = 800)*1100.434834`)
+
+I think there is not much difference when I using the Hull-White robust standard error, since standard errors do not change much for all coefficients, and the estimated coefficients are all remain significant at 0.01 significance level.
+
+
+
+From the residual plot below, I can see there is obvious heteroscedasticity, that higher fitted values has higher variance of residuals.
+```{r}
+plot(mymodel2, which =1)
+```
+
+## Question 3
+```{r}
+data3 <- read.csv('MicrosoftFactorData.csv')
+data3$dspread <- c(NA, diff(data3$BAA.AAA.SPREAD, differences=1))
+data3$dcredit <- c(NA, diff(data3$CONSUMER.CREDIT, differences=1))
+data3$dprod <- c(NA, diff(data3$Industrial.production, differences=1))
+data3$rdata3oft <- c(NA, 100*diff(log(data3$Microsoft), lag=1))
+data3$rsandp <- c(NA, 100*diff(log(data3$SANDP), lag=1))
+data3$dmoney <- c(NA, diff(data3$M1MONEY.SUPPLY, differences=1))
+data3$inflation <- c(NA, 100*diff(log(data3$CPI), lag=1))
+data3$term <- data3$USTB10Y-data3$USTB3M
+data3$dinflation <- c(NA, diff(data3$inflation, differences=1))
+data3$mustb3m <- data3$USTB3M/12
+data3$rterm <- c(NA, diff(data3$term, differences=1))
+data3$ermsoft <- data3$rdata3oft-data3$mustb3m
+data3$ersandp <- data3$rsandp-data3$mustb3m
+```
+
+####(a)
+
+```{r}
+model3 <- lm(ermsoft~ersandp+dprod+dcredit+dinflation+dmoney+dspread+rterm, data=data3)
+summary(model3)
+```
+
+Which is consistent with the Eviews result in the book.
+
+#### (b)
+```{r}
+bgtest(model3)
+```
+
+The p-value is 0.2105, which is greater than 0.1, so even at significance level $\alpha = 0.1$, we can not reject the null hypothesis to say there is significant autocorrelation problem. Indeed, after the transforamtion of dependent variable and predictors, there is not significant autocorrelation problem in this model.
+
+## Question 4
+```{r}
+data4 <- read.csv('IceCreamConsumption.csv')
+model4 <- lm(cons~income+price+temp,data=data4)
+summary(model4)
+```
+#### (a)
+```{r}
+plot.ts(data4$time, rstudent(model4))
+```
+#### (b)
+```{r}
+e0 <- model4$residuals[-1]
+e1 <- model4$residuals[-nrow(data4)]
+plot(x=e0,y=e1)
+abline(lm(e1~e0))
+```
+From the picture above, there is positive correlation between $e_0$ and $e_1$, which shows the presence of the positive autocorrelation.
+
+## Question 5
+```{r}
+data5 <- read.csv('AgrestiFinlayCrime.csv')
+model5 <- lm(crime~pctmetro+pctwhite+pcths+poverty+single, data = data5)
+summary(model5)
+```
+#### (a)
+- Standardized residual
+```{r}
+std.res <- stdres(model5)
+sort(std.res, decreasing = TRUE)[1:3]
+```
+
+- Studentized residual
+```{r}
+student.res <- rstudent(model5)
+sort(student.res, decreasing = TRUE)[1:3]
+```
+#### (b)
+```{r}
+lvg <- hatvalues(model5)
+sort(lvg, decreasing = TRUE)[1:3]
+```
+
+#### (c)
+Since the case 51 data are in the top 3 for all residual and leverage parts in (a) and (b), it appears to have the most influence over the fit of the regression.
+
+#### (d)
+```{r}
+ckdis <- cooks.distance(model5)
+sort(ckdis, decreasing = TRUE)[1:3]
+```
+
+#### (e)
+```{r}
+influencePlot(model5)
+```
+
+The three largest bubble indeed are 51, 11 and 25, which is consistent with the result in part (d).
+
+#### (f)
+
+```{r}
+data5.new <- data5[c(-25,-51),]
+model5.new <- lm(crime~pctmetro+pctwhite+pcths+poverty+single, data = data5.new)
+coefficient_nonclean <- model5$coefficients
+coefficient_clean <- model5.new$coefficients
+kable(data.frame(coefficient_nonclean,coefficient_clean))
+```
+The estimated cofficients changes a lot after filtering out the incluencial data points, overall, all coefficients absolute value decrease, this could because the two cases we filtered out has higher obviouse higher crime compared to other observations.
+
+## Question 6
+
+```{r}
+data6 <- read.csv('Abalone.csv')
+model6 <- lm(AGE~as.factor(SEX)+DIAMETER+HEIGHT+LENGTH+WHOLEWEIGHT, data=data6)
+summary(model6)
+```
+
+#### (a)
+```{r}
+influencePlot(model6)
+```
+
+From the picture we can see the 2052th observation is extrmely influencial, I remove this point firstly then re-run the regression.
+
+```{r}
+data6.new <- data6[-2052]
+model6.new <- lm(AGE~as.factor(SEX)+DIAMETER+HEIGHT+LENGTH+WHOLEWEIGHT, data=data6.new)
+summary(model6.new)
+
+```
+
+#### (a)
+The histogram of residuals
+```{r}
+ggplot() + geom_histogram(aes(x=model6.new$residuals))
+```
+
+The kernel density histogram of residuals
+```{r}
+ggplot() + geom_density(aes(x=model6.new$residuals, y=..density..))+ geom_histogram(aes(x=model6.new$residuals,y=..density..), alpha=0.6)
+```
+
+Q-Q plot of fitted residuals
+```{r}
+qqnorm(model6.new$residuals)
+qqline(model6.new$residuals)
+```
+The residuals seem to be not normal, from the Q-Q plot I think the residuals is right-skewed and platykurtic.
+
+#### (b)
+```{r}
+data6.new$logAGE <- log(data6.new$AGE)
+model6.log <- lm(logAGE~as.factor(SEX)+DIAMETER+HEIGHT+LENGTH+WHOLEWEIGHT, data=data6.new)
+summary(model6.log)
+
+```
+
+#### (c)
+The hypotheses for both tests are:
+$H_0$: The residuals are approximately normal distributed
+$H_1$: The fitted residuals are not approximately normal distributed
+
+For Jarqua-Bera Test:
+```{r}
+jarque.bera.test(model6.log$residuals)
+```
+
+The p-value of test result is small and less than 0.001, so we can reject the null hypothesis at significance level $\alpha = 0.001$.
+
+
+For Kolmogorov-Smirnov test:
+```{r}
+ks.test(data6.new$logAGE,model6.log$residuals)
+```
+The p-value of test result is small and less than 0.001, so we can reject the null hypothesis at significance level $\alpha = 0.001$.
+
+So for both tests we can reject the null hypothesis to say the residuals could not be normal.
+
+```{r}
+qqnorm(model6.log$residuals)
+qqline(model6.log$residuals)
+```
+The residuals of the revised model still not like normal, but much better than previous model, the revised model seems to be much more "normal" than original model.
+
+
+## Question 7
+
+```{r}
+cricket <- read.csv('CricketChirps.csv')
+cricket.lm <- lm(NUMCHIRPS~TEMPERATURE,data=cricket)
+summary(cricket.lm)
+```
+
+#### (a)
+```{r}
+plot(cricket.lm$fitted.values,cricket.lm$residuals)
+abline(h=0)
+```
+
+The coefficient of the independent variable is significant positive, but the residual plot shows that there is pattern for residuals across independent variable, that is, residuals tend to be smaller around 17 and get larger farer to 17. 
+
+#### (b)
+This could show some evidence that the relationship between X and Y is not linear, to solve this problem, I can add a quardratic term of X.
+
+```{r}
+cricket.lm.new <-lm(NUMCHIRPS~TEMPERATURE+I(TEMPERATURE^2),data=cricket)
+summary(cricket.lm.new)
+
+```
+#### (c)
+```{r}
+plot(cricket.lm.new$fitted.values,cricket.lm.new$residuals)
+abline(h=0)
+```
+Now the residuals seems to be independent of $\hat{y_i}$, adding the quadratic term do address the problem.
+
+## Question 8
+
+#### (a)
+Since the real world is complicated, one variable could be influence by a lot of unseen variables, it is rare that we can find all variables could perfect explain the dependent variables. So if $R^2$ is really large, it could possibly exist some problems in the model, so we need to perform diagnostic checks for the model. Also, if the $R^2$ is large, which means the explanation power for the model would be higher, so we should more consider carefully for the model.
+
+#### (b)
+I partially agree with this judgement, we can firstly take a look at the residual plot no matter whether X specided adequately, if there is an obvious pattern for the residuals, we can quickly see the inadequacy for the model, but we can not say the model is adequat just because the residual plot looks good.
+
+#### (c)
+No, we can not just ignore every outliers, since the outlier could have the information we might need for the prediction, we might lose some information in the data, it really depends on the context.
+
+#### (d)
+If the dataset is large, the residuals would not neccessarily to be 'perfect normal', since  most of the time the quantiles of the empirical fitted residuals and the theoretical residuals lie roughly on curve determined by the identity function, the result should be acceptable.
