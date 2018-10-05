@@ -1,0 +1,52 @@
+---
+title: "Homework6"
+author: "Tianqi Wang"
+date: "10/3/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+knitr::opts_chunk$set(fig.align = 'center') 
+options(scipen=999)
+library(tidyverse)
+library(scales)
+library(lmtest)
+library(sandwich)
+library(knitr)
+library(MASS)
+library(tseries)
+library(car)
+```
+
+## Question 1
+```{r}
+data1 <- read.csv('Myopia.csv')
+```
+
+#### (a)
+```{r}
+xtabs(~ MYOPIC + MOMMY, data = data1)
+```
+
+From the cross-table of variable `MYOPIC` and `MOMMY`, we can observe that the percentage the student has myopia would increase a lot if his or her mother had myopia. So I think there is a positive relationship between whether or not a child has myopia and whether or not his or her mother had myopia.
+
+#### (b)
+```{r}
+model1 <- glm(MYOPIC~MOMMY+DADMY+SPORTHR+READHR+COMPHR+STUDYHR+TVHR+GENDER, family = binomial, data = data1)
+summary(model1)
+```
+
+From the regression result, the coefficient of the variable `DADMY` is statitically significantly differenet from zero, at significance level $\alpha = 0.01$ and it is positive, which means there is a significant positive relationship between the variable `DADMY` and predicted variable. The coefficient is `0.98824`, which means for those students whose father are myopic, their odds would be `exp(0.9884)-1=``r percent(exp(0.9884)-1)` higher than those whose father are not myoptic，on average, else being equal.
+
+#### (c)
+ - **Why are there eight degrees of freedom?**  
+    Because there are eight predictor variables, so compare to the base regression model 
+ - What is the null hypothesis associated with it?  
+    $\beta_{MOMMY} = \beta_{DADMY} = \beta_{SPORTHR} = \beta_{READHR} = \beta_{COMPHR} = \beta_{STUDYHR} = \beta_{TVHR} = \beta_{GENDER} = 0$
+ - Where did the test statistic come from?   
+    
+ - What do you do with the null hypothesis in light of the the test statistic?
