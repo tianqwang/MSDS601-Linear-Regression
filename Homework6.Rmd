@@ -32,11 +32,11 @@ data1 <- read.csv('Myopia.csv')
 xtabs(~ MYOPIC + MOMMY, data = data1)
 ```
 
-From the cross-table of variable `MYOPIC` and `MOMMY`, we can observe that the percentage the student has myopia would increase a lot if his or her mother had myopia. So I think there is a positive relationship between whether or not a child has myopia and whether or not his or her mother had myopia.
+From the cross-table of variable `MYOPIC` and `MOMMY`, we can observe that the percentage the student has myopia would increase a lot, from `r percent(26/279)` to `r percent(55/258)`, if his or her mother had myopia. So I think there is a positive relationship between whether or not a child has myopia and whether or not his or her mother had myopia.
 
 #### (b)
 ```{r}
-model1 <- glm(MYOPIC~MOMMY+DADMY+SPORTHR+READHR+COMPHR+STUDYHR+TVHR+GENDER, family = binomial, data = data1)
+model1 <- glm(MYOPIC~as.factor(MOMMY)+as.factor(DADMY)+SPORTHR+READHR+COMPHR+STUDYHR+TVHR+as.factor(GENDER), family = binomial, data = data1)
 summary(model1)
 ```
 
@@ -45,8 +45,128 @@ From the regression result, the coefficient of the variable `DADMY` is statitica
 #### (c)
  - **Why are there eight degrees of freedom?**  
     Because there are eight predictor variables, so compare to the base regression model 
- - What is the null hypothesis associated with it?  
+ - **What is the null hypothesis associated with it?**  
     $\beta_{MOMMY} = \beta_{DADMY} = \beta_{SPORTHR} = \beta_{READHR} = \beta_{COMPHR} = \beta_{STUDYHR} = \beta_{TVHR} = \beta_{GENDER} = 0$
- - Where did the test statistic come from?   
+ - **Where did the test statistic come from?**  
+    The test statistic is from the subtraction of two deviance.  
+ - **What do you do with the null hypothesis in light of the the test statistic?**
+    Check the p-value for the test statistic, if the p-value is small enough (e.g < 0.05), then reject the null hypothesis and draw the conclusion that it is statistically significant that these variables are jointly have influence on the prected variable.
     
- - What do you do with the null hypothesis in light of the the test statistic?
+#### (d)
+```{r}
+x = predict.glm(model1,newdata = data.frame(MOMMY=0, DADMY=0, SPORTHR=6, READHR=5, COMPHR=4, STUDYHR=3, TVHR=2, GENDER = 1))
+predict1 <- 1/(1+exp(-x))
+```
+
+So in this case the predicted probability is `r percent(predict1)`.
+
+#### (e)
+Construct the restricted model.
+```{r}
+model1.new <- glm(MYOPIC~as.factor(MOMMY)+as.factor(DADMY)+SPORTHR+READHR+as.factor(GENDER), family = binomial, data = data1)
+summary(model1.new)
+```
+
+Then check the Chi-statistic, which is `r model1.new$deviance-model1$deviance`, at 3 degrees of freedom. 
+```{r}
+(p = 1 - pchisq(model1.new$deviance-model1$deviance, df = 3))
+```
+The p-value is `r p`, which > 0.05, so we can not reject the null hypothesis at the significance level $\alpha = 0.05$. So we can draw the conclusion, at the significance level $\alpha = 0.05$, three variables `COMPHR`, `STUDYHR` and `TVHR` do not jointly have significant relationship between the probability of myopic.
+
+#### (f)
+The exponentials of the fitted coefficient associated to `SPORTHR` is `r exp(model1$coefficients[["STUDYHR"]])` which means the odds would be `r exp(model1$coefficients[["STUDYHR"]])` time when `SPORTHR` increase one unit, on average, else being equal.
+
+The exponentials of the fitted coefficient associated to `MOMMY` is `r exp(model1$coefficients[[2]])` which means the odds would be `r exp(model1$coefficients[[2]])` time when `MOMMY` is myopic, on average, else being equal.
+
+#### (g)
+```{r}
+tvhour <- seq(0,20,0.5)
+pi <- 1/(1+exp(-predict.glm(model1, newdata = data.frame(MOMMY = rep(1,41), DADMY = rep(1,41),  
+                                               SPORTHR = rep(6,41), READHR  = rep(5,41), 
+                                               COMPHR = rep(4,41), STUDYHR = rep(3,41), 
+                                               TVHR = tvhour,GENDER = 1))))
+plot(pi~tvhour)
+```
+
+#### (h)
+```{r}
+vif(model1)
+```
+
+VIF of all predictor variables are small, there is no obvious evidence showing the existence of severe multicollinearity problem.
+
+## Question 2
+```{r}
+data2 <- read.csv('HousingRacialIntegration.csv')
+```
+#### (a)
+```{r}
+xtabs(~SENTIMENT+PROXIMITY,data = data2)
+```
+
+```{r}
+xtabs(~SENTIMENT+CONTACT,data = data2)
+```
+
+#### (b)
+```{r}
+model2 <- glm(SENTIMENT~as.factor(PROXIMITY)+as.factor(CONTACT), data = data2, family = 'binomial')
+summary(model2)
+```
+
+#### (c)
+R get the number from `Null deviance - Residual deviance`, which is `r model2$null.deviance` - `r model2$deviance` = `r model2$null.deviance-model2$deviance`.
+
+#### (d)
+```{r}
+(1-pchisq(model2$null.deviance-model2$deviance, df = 2))
+```
+I think the researcher's statement is not correct, for one thing, the test rejects the null hypothesis that both coefficients for proximity and contact are both equals to zero, but one of them could be zero. For another, even if the coefficient are statitically significant different from zero, it does not necessarilly mean they have predicting power, they could just related.
+
+#### (e)
+```{r}
+(p <- predict.glm(model2,newdata = data.frame(PROXIMITY = 0, CONTACT = 1), type = 'link', se.fit = T))
+```
+
+The predicted probability is `1/(1+exp(-p$fit)) = ``r percent(1/(1+exp(-p$fit)))`, and the 95% prediction interval is `(1/(1+exp(-p$fit-qnorm(0.975)*p$se.fit)), 1/(1+exp(-p$fit+qnorm(0.975)*p$se.fit))` =  (`r percent(1/(1+exp(-p$fit-qnorm(0.975)*p$se.fit)))`, `r percent(1/(1+exp(-p$fit+qnorm(0.975)*p$se.fit)))`)
+
+#### (f)
+
+Function for Efron's pseudo-$R^2$:
+```{r}
+r_sq_1 = function(x){
+    numeritor = sum((x$y-x$fitted.values)^2)
+    denominator = sum((x$y-mean(x$y))^2)
+    return(1-numeritor/denominator)
+}
+r_sq_1(model2)
+```
+
+```{r}
+r_sq_1 = function(x){
+    return(1-x$deviance/x$null.deviance)
+}
+r_sq_1(model2)
+```
+
+#### (h)
+- The coefficient of `PROXIMITY` is `r b1`, which is small and the p-value is large, which shows there is no significant linear relationship between `PROXIMITY` and log odds of `SENTIMENT`.
+- The coefficient of `CONTACT` is `r b2`, and the exponential of the coefficient is `r exp(b2)`, which means for those people who has frequent contact with folks who live in public housing would has a `r exp(b2)` times odds compared to those who do not have has frequent contact with folks who live in public housing.
+
+## Question 3
+#### (a)
+```{r}
+
+func3 <- function(x, threshold){
+        if (x > threshold){
+            return (1)
+        }
+        else {
+            return (0)
+        }
+}
+predicted_value <- sapply(model1$fitted.values, func3, threshold = 0.6)
+true_value <- model1$y
+confusionMatrix(predicted_value,true_value)
+```
+
